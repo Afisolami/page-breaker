@@ -10,4 +10,6 @@ Page Breaker is a full-screen arcade launcher that turns a pasted public website
 
 The launcher also exposes this snippet through its **Embed** control. Add `?url=example.com` to load a particular public page immediately.
 
-The server loads a safe, inert copy of the target page. Scripts, forms, frames, and interactive navigation are removed before play. Page content becomes collision targets; the level auto-scrolls after a cleared viewport, while manual scrolling remains available. Paddle and ball colors adapt to the page theme.
+The server loads a safe, inert copy of the target page. Scripts and active navigation are removed, while form contents and sandboxed embeds remain visible. Lazy images, responsive image sets, fonts, video, and background media are promoted before play.
+
+Text fragments, controls, images, videos, icons, canvases, decorative surfaces, and even thin borders become collision targets. The level auto-scrolls after a cleared viewport, while manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.

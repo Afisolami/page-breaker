@@ -24,7 +24,7 @@ async function fetchPage(input) {
     const type = result.headers.get("content-type") || "";
     if (!type.includes("text/html") && !type.includes("application/xhtml+xml")) throw new Error("That address is not an HTML website.");
     const buffer = await result.arrayBuffer();
-    if (buffer.byteLength > 3_000_000) throw new Error("This page is too large to turn into a level.");
+    if (buffer.byteLength > 10_000_000) throw new Error("This page is too large to turn into a level.");
     return { html: new TextDecoder().decode(buffer), finalUrl: target.href };
   }
   throw new Error("The website redirected too many times.");
