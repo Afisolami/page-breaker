@@ -1,7 +1,13 @@
 # Page Breaker
 
-A zero-dependency browser game that turns the visible parts of a website into a brick-breaker level.
+Page Breaker is a zero-dependency website embed that turns the current viewport into a brick-breaker level.
 
-Move the paddle with the mouse, touch, arrow keys, or A/D. Keep the ball in play, destroy every highlighted content region, and catch ×3 drops for a temporary 12-second multiball boost.
+## Add it to a website
 
-Open `index.html` directly or serve this folder with any static file server.
+```html
+<script src="https://page-breaker-game.tact-studios0.chatgpt.site/embed.js" data-pagebreaker-launcher="true"></script>
+```
+
+The script adds a floating launcher. A link with `?pagebreaker=1` starts the game automatically, and `window.PageBreaker.start()` can launch it from a custom control.
+
+The game reads the host page’s computed background and accent colors, selects accessible game colors, converts visible content into collision targets, and restores the page when the game closes.

@@ -2,132 +2,93 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#07090f" />
-    <meta
-      name="description"
-      content="A playable website where every piece of the page becomes a brick."
-    />
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307090f'/%3E%3Ccircle cx='32' cy='18' r='8' fill='%23dfff00'/%3E%3Crect x='13' y='42' width='38' height='8' rx='4' fill='%237b61ff'/%3E%3C/svg%3E"
-    />
-    <title>Page Breaker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090a0f" />
+    <meta name="description" content="Turn any website into a playable brick-breaker game with one embed snippet." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23090a0f'/%3E%3Ccircle cx='32' cy='18' r='8' fill='%23eaff38'/%3E%3Crect x='13' y='42' width='38' height='8' rx='4' fill='%23fff'/%3E%3C/svg%3E" />
+    <title>Page Breaker — Make your website playable</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="site-shell" id="site-content" aria-hidden="true">
-      <nav class="site-nav breaker-target" data-hp="1" data-points="75">
-        <a class="brand" href="#">NORTH/STAR</a>
-        <div class="nav-links">
-          <a href="#work">Work</a>
-          <a href="#about">About</a>
-          <a href="#contact">Contact</a>
-        </div>
-        <span class="availability">Available for projects</span>
-      </nav>
+    <header class="topbar">
+      <a class="wordmark" href="/" aria-label="Page Breaker home"><span class="wordmark-ball"></span><span>PAGE<br />BREAKER</span></a>
+      <button class="text-button" id="demo-button-top">Play this page</button>
+    </header>
 
-      <section class="hero" id="work">
-        <p class="eyebrow breaker-target" data-hp="1">Independent digital studio · 2026</p>
-        <h1 class="breaker-target hero-title" data-hp="3" data-points="300">
-          We shape ideas<br />into <em>digital motion.</em>
-        </h1>
-        <div class="hero-footer">
-          <p class="hero-copy breaker-target" data-hp="2" data-points="180">
-            Brand systems, interactive products and ambitious web experiences for people building what comes next.
-          </p>
-          <div class="hero-orbit breaker-target" data-hp="2" data-points="180" aria-label="Scroll to explore">
-            <span>SCROLL TO EXPLORE</span>
-            <strong>↘</strong>
+    <main>
+      <section class="builder" aria-labelledby="builder-title">
+        <div class="builder-copy">
+          <p class="kicker">WEBSITES ARE THE NEW ARCADES</p>
+          <h1 id="builder-title">Turn your website<br />into a <em>game.</em></h1>
+          <p class="lead">Enter your site, add one line of code, and every visible headline, image, card and button becomes a brick.</p>
+        </div>
+
+        <form class="url-card" id="url-form" novalidate>
+          <label for="site-url">Your website</label>
+          <div class="url-field">
+            <span aria-hidden="true">↗</span>
+            <input id="site-url" name="url" type="url" inputmode="url" autocomplete="url" placeholder="yourwebsite.com" required />
+            <button type="submit">Create my game</button>
+          </div>
+          <p class="field-note" id="url-note">Works on any site where you can add a script tag.</p>
+        </form>
+
+        <div class="demo-window" aria-hidden="true">
+          <div class="demo-browserbar"><span></span><span></span><span></span><i>studio.example</i></div>
+          <div class="demo-content">
+            <nav class="demo-nav"><b>NORTH/STAR</b><span>Work&nbsp;&nbsp; About&nbsp;&nbsp; Contact</span></nav>
+            <p class="demo-eyebrow">INDEPENDENT DIGITAL STUDIO · 2026</p>
+            <h2>We shape ideas<br />into <em>digital motion.</em></h2>
+            <div class="demo-cards"><span></span><span></span></div>
+            <i class="demo-ball"></i><i class="demo-paddle"></i>
           </div>
         </div>
       </section>
 
-      <section class="work-grid" id="about">
-        <article class="project project-violet breaker-target" data-hp="2" data-points="220">
-          <span>01 / AER</span>
-          <h2>Designing calm<br />for busy minds.</h2>
-          <p>Product · Identity · 2026</p>
-        </article>
-        <article class="project project-lime breaker-target" data-hp="2" data-points="220">
-          <span>02 / NOMAD</span>
-          <h2>A new rhythm<br />for remote work.</h2>
-          <p>Strategy · Web · 2025</p>
-        </article>
-        <article class="manifesto breaker-target" data-hp="2" data-points="200">
-          <p>Small team.</p>
-          <p>Sharp thinking.</p>
-          <p>No filler.</p>
-        </article>
-        <article class="project project-blue breaker-target" data-hp="2" data-points="220">
-          <span>03 / CURRENT</span>
-          <h2>Energy that<br />moves with you.</h2>
-          <p>Campaign · Experience · 2025</p>
-        </article>
+      <section class="install-panel" id="install-panel" hidden aria-labelledby="install-title">
+        <div class="install-heading">
+          <div><p class="kicker">READY TO INSTALL</p><h2 id="install-title">Your site is one line away.</h2></div>
+          <span class="site-chip" id="site-chip"></span>
+        </div>
+
+        <div class="install-grid">
+          <article class="step-card">
+            <span class="step-number">01</span><h3>Add the game</h3>
+            <p>Paste this just before the closing <code>&lt;/body&gt;</code> tag on your website.</p>
+            <div class="code-box"><code id="embed-code"></code><button class="copy-button" id="copy-code" type="button">Copy code</button></div>
+          </article>
+
+          <article class="step-card accent-card">
+            <span class="step-number">02</span><h3>Share the playable link</h3>
+            <p>After installing the code, this link opens your site with the game ready to play.</p>
+            <div class="link-box"><span id="play-link"></span></div>
+            <div class="button-row"><button class="secondary-button" id="copy-link" type="button">Copy link</button><a class="primary-button" id="open-link" href="#" target="_blank" rel="noopener">Open game</a></div>
+          </article>
+        </div>
+
+        <div class="theme-note">
+          <span class="theme-icon" aria-hidden="true"><i></i><b></b></span>
+          <div><strong>Automatic theme matching</strong><p>The game reads the page background and accent colors. Dark sites get a white paddle and electric ball; light sites get a dark paddle and a high-contrast accent ball.</p></div>
+        </div>
       </section>
 
-      <footer class="site-footer breaker-target" id="contact" data-hp="2" data-points="250">
-        <p>Have a good problem?</p>
-        <a href="mailto:hello@example.com">Let’s make something.</a>
-        <span>© 2026</span>
-      </footer>
+      <section class="how-it-works" aria-label="How it works">
+        <article><span>01</span><h3>Reads the page</h3><p>Visible content blocks become the level. The page never leaves the visitor’s browser.</p></article>
+        <article><span>02</span><h3>Matches the colors</h3><p>Paddle, ball, outlines and HUD adapt automatically for contrast and character.</p></article>
+        <article><span>03</span><h3>Starts on demand</h3><p>Use the floating launcher, a playable link, or call <code>PageBreaker.start()</code>.</p></article>
+      </section>
     </main>
 
-    <div class="game-layer" id="game-layer">
-      <canvas id="game-canvas" aria-label="Page Breaker game"></canvas>
-
-      <header class="game-hud">
-        <a class="game-logo" href="#" aria-label="Page Breaker home">
-          <span class="logo-ball"></span>
-          PAGE<br />BREAKER
-        </a>
-        <div class="hud-center" aria-live="polite">
-          <span id="score">000000</span>
-          <span class="hud-divider"></span>
-          <span id="progress">0% CLEARED</span>
-        </div>
-        <div class="lives" id="lives" aria-label="Three lives"></div>
-      </header>
-
-      <div class="power-timer" id="power-timer" aria-hidden="true">
-        <span>MULTIBALL</span>
-        <div class="timer-track"><i id="timer-fill"></i></div>
-      </div>
-
-      <section class="intro-panel" id="intro-panel">
-        <p class="intro-kicker">A WEBSITE YOU CAN BREAK</p>
-        <h1>Don’t scroll it.<br /><em>Smash it.</em></h1>
-        <p class="intro-copy">
-          Keep the ball alive and clear every piece of this page. Catch the falling <b>×3</b> to split the ball—before the boost runs out.
-        </p>
-        <button class="primary-button" id="start-button">Start breaking</button>
-        <div class="controls-row">
-          <span><kbd>←</kbd><kbd>→</kbd> or mouse to move</span>
-          <span><kbd>Space</kbd> pause</span>
-        </div>
-      </section>
-
-      <div class="game-message" id="game-message" aria-live="assertive"></div>
-
-      <section class="end-panel" id="end-panel" hidden>
-        <p class="intro-kicker" id="end-kicker">PAGE CLEARED</p>
-        <h2 id="end-title">Nothing left<br /><em>but pixels.</em></h2>
-        <p id="final-score">Final score 000000</p>
-        <button class="primary-button" id="restart-button">Break it again</button>
-      </section>
-
-      <div class="sound-control">
-        <button id="sound-button" aria-pressed="true" aria-label="Toggle sound">SOUND ON</button>
-      </div>
-    </div>
-
-    <script src="game.js"></script>
+    <footer>
+      <div><span class="wordmark-ball"></span> PAGE BREAKER</div>
+      <button class="text-button" id="demo-button-bottom">Try the demo</button>
+      <span>Built for the playful web.</span>
+    </footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="embed.js" data-pagebreaker-launcher="false"></script>
+    <script src="app.js"></script>
   </body>
 </html>
