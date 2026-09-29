@@ -1,13 +1,13 @@
 # Page Breaker
 
-Page Breaker is a zero-dependency website embed that turns the current viewport into a brick-breaker level.
+Page Breaker is a full-screen arcade launcher that turns a pasted public website into a brick-breaker level.
 
 ## Add it to a website
 
 ```html
-<script src="https://page-breaker-game.tact-studios0.chatgpt.site/embed.js" data-pagebreaker-launcher="true"></script>
+<iframe src="https://page-breaker-game.tact-studios0.chatgpt.site" title="Page Breaker" allow="autoplay" style="width:100%;height:720px;border:0"></iframe>
 ```
 
-The script adds a floating launcher. A link with `?pagebreaker=1` starts the game automatically, and `window.PageBreaker.start()` can launch it from a custom control.
+The launcher also exposes this snippet through its **Embed** control. Add `?url=example.com` to load a particular public page immediately.
 
-The game reads the host page’s computed background and accent colors, selects accessible game colors, converts visible content into collision targets, and restores the page when the game closes.
+The server loads a safe, inert copy of the target page. Scripts, forms, frames, and interactive navigation are removed before play. Page content becomes collision targets; the level auto-scrolls after a cleared viewport, while manual scrolling remains available. Paddle and ball colors adapt to the page theme.
