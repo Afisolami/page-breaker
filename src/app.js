@@ -109,7 +109,7 @@
     base.href = finalUrl;
     parsed.head.prepend(base);
     const style = parsed.createElement("style");
-    style.textContent = `html{scroll-behavior:auto!important}body{min-height:100vh!important}*{animation-play-state:paused!important}a,button,input,textarea,select{cursor:default!important}iframe{pointer-events:none!important}[data-pb-destroyed]{pointer-events:none!important}`;
+    style.textContent = `html{scroll-behavior:auto!important}body{min-height:100vh!important}*{animation-play-state:paused!important}a,button,input,textarea,select{cursor:default!important}iframe{pointer-events:none!important}[data-pb-destroyed]{pointer-events:none!important}[data-pb-surface-destroyed]::before,[data-pb-surface-destroyed]::after{opacity:0!important}`;
     parsed.head.append(style);
     return `<!doctype html>${parsed.documentElement.outerHTML}`;
   }
@@ -239,12 +239,16 @@
         nodes.push(node);
       }
       for (const node of nodes) {
-        const wrapper = doc.createElement("span");
-        wrapper.className = "pb-text-fragment";
-        wrapper.style.setProperty("display", "inline", "important");
-        wrapper.style.setProperty("box-decoration-break", "clone");
-        wrapper.style.setProperty("-webkit-box-decoration-break", "clone");
-        node.parentNode.replaceChild(wrapper, node); wrapper.append(node);
+        const fragment = doc.createDocumentFragment();
+        for (const token of node.nodeValue.split(/(\s+)/)) {
+          if (!token) continue;
+          if (/^\s+$/.test(token)) { fragment.append(doc.createTextNode(token)); continue; }
+          const wrapper = doc.createElement("span");
+          wrapper.className = "pb-text-fragment";
+          wrapper.style.setProperty("display", "inline-block", "important");
+          wrapper.textContent = token; fragment.append(wrapper);
+        }
+        node.parentNode.replaceChild(fragment, node);
       }
     }
 
@@ -263,6 +267,11 @@
       });
     }
 
+    function surfaceTargets(element, style, rect, atomic) {
+      if (atomic || !element.children.length || rect.width < 2 || rect.height < 2 || !isPainted(style)) return [];
+      return [{ element, kind: "surface", surfaceColor: style.backgroundColor }];
+    }
+
     function targetRect(brick) {
       const rect = brick.element.getBoundingClientRect();
       if (brick.kind === "border-top") return { x: rect.left, y: rect.top, w: rect.width, h: brick.thickness };
@@ -274,24 +283,24 @@
 
     function indexPage() {
       exposeTextFragments();
-      const explicit = "img,picture,video,audio,iframe,svg,canvas,hr,button,input,textarea,select,progress,meter,summary,a,[role='img'],[role='button'],[data-pagebreaker-brick],.pb-text-fragment";
+      const explicit = "img,video,audio,iframe,svg,canvas,hr,input,textarea,select,progress,meter,[role='img'],[data-pagebreaker-brick],.pb-text-fragment";
       const records = [];
       $$("body *", doc).forEach((element) => {
-        if (element.closest("script,style,noscript") || element.matches("br,source,track,wbr")) return;
+        if (element.closest("script,style,noscript") || element.matches("br,source,track,wbr,picture") || (element.closest("svg") && !element.matches("svg"))) return;
         const rect = element.getBoundingClientRect(), style = win.getComputedStyle(element);
         if (rect.width < .75 || rect.height < .75 || style.display === "none" || style.visibility === "hidden" || Number(style.opacity) < .02) return;
         const pseudoBefore = win.getComputedStyle(element, "::before"), pseudoAfter = win.getComputedStyle(element, "::after");
         const pseudoPainted = [pseudoBefore, pseudoAfter].some((pseudo) => pseudo.content !== "none" && pseudo.content !== "normal" && (pseudo.content !== '""' || isPainted(pseudo)));
         const atomic = element.matches(explicit) || (!element.children.length && (isPainted(style) || element.textContent.trim() || pseudoPainted));
         if (atomic) records.push({ element, kind: "element" });
+        records.push(...surfaceTargets(element, style, rect, atomic));
         records.push(...borderTargets(element, style, rect, atomic));
       });
       const depth = (element) => { let count = 0; while (element?.parentElement) { count += 1; element = element.parentElement; } return count; };
       records.sort((a, b) => depth(b.element) - depth(a.element));
       bricks = records.map((record, index) => {
-        const rect = targetRect(record), area = rect.w * rect.h, color = record.borderColor || (index % 3 === 0 ? theme.ball : index % 3 === 1 ? "#ff7138" : "#6670ff");
-        const hp = record.kind === "element" && area > 100000 ? 3 : record.kind === "element" && area > 32000 ? 2 : 1;
-        return { ...record, index, hp, maxHp: hp, alive: true, original: record.element.style.cssText, rect: null, color };
+        const color = record.borderColor || record.surfaceColor || (index % 3 === 0 ? theme.ball : index % 3 === 1 ? "#ff7138" : "#6670ff");
+        return { ...record, index, hp: 1, maxHp: 1, alive: true, original: record.element.style.cssText, rect: null, color };
       });
       updateVisible(); updateHud();
     }
@@ -319,7 +328,20 @@
         const next = bricks.find((brick) => brick.alive);
         if (next) next.element.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
         setTimeout(() => { scrollQueued = false; scrollCue.classList.remove("show"); updateVisible(); }, reduceMotion ? 40 : 480);
-      }, 650);
+      }, 260);
+    }
+
+    function compactClearedTop(lastRect) {
+      if (scrollQueued || lastRect.y > height * .35) return;
+      clearTimeout(state.advanceTimer);
+      state.advanceTimer = setTimeout(() => {
+        updateVisible();
+        const firstAlive = visible.reduce((top, brick) => brick.rect ? Math.min(top, Math.max(0, brick.rect.y)) : top, Infinity);
+        if (firstAlive < height * .1 || firstAlive === Infinity) return;
+        scrollQueued = true; scrollCue.classList.add("show");
+        win.scrollBy({ top: Math.max(height * .1, firstAlive - 18), behavior: reduceMotion ? "auto" : "smooth" });
+        setTimeout(() => { scrollQueued = false; scrollCue.classList.remove("show"); updateVisible(); }, reduceMotion ? 40 : 420);
+      }, 90);
     }
 
     function updateHud() {
@@ -341,29 +363,25 @@
     function burst(x, y, color, count, force = 1) { for (let i = 0; i < count; i += 1) { const angle = Math.random() * Math.PI * 2, speed = (70 + Math.random() * 250) * force; particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: .5 + Math.random() * .55, size: 2 + Math.random() * 6, color, rotation: Math.random() * Math.PI }); } }
 
     function hitBrick(brick, ball) {
-      bounce(ball, brick.rect); brick.hp -= 1; state.score += 25; burst(ball.x, ball.y, brick.color, 8); tone(245 + Math.random() * 90, .045, "square", .026); noise(.035, .018);
-      if (brick.kind === "element" && brick.element.animate && !reduceMotion) brick.element.animate([{ transform: "translate3d(0,0,0) rotate(0)", filter: "brightness(1)" }, { transform: `translate3d(${ball.vx > 0 ? 5 : -5}px,-2px,0) rotate(${ball.vx > 0 ? 1 : -1}deg)`, filter: "brightness(1.8)" }, { transform: "translate3d(0,0,0) rotate(0)", filter: "brightness(1)" }], { duration: 120, easing: "cubic-bezier(.23,1,.32,1)" });
-      if (brick.hp <= 0) destroyBrick(brick, ball); else { brick.element.style.outline = `1px solid ${brick.color}`; brick.element.style.outlineOffset = "2px"; }
-      updateHud();
+      bounce(ball, brick.rect); destroyBrick(brick, ball); updateHud();
     }
 
     function destroyBrick(brick, ball) {
-      brick.alive = false; state.destroyed += 1; state.score += brick.maxHp * 125; brick.element.dataset.pbDestroyed = "true";
+      brick.alive = false; state.destroyed += 1; state.score += 150; brick.element.dataset.pbDestroyed = "true";
+      const direction = ball.vx >= 0 ? 1 : -1;
       if (brick.kind === "element") {
-        for (const nested of bricks) if (nested.alive && nested.element !== brick.element && brick.element.contains(nested.element)) { nested.alive = false; state.destroyed += 1; state.score += nested.maxHp * 125; }
-      }
-      const direction = ball.vx >= 0 ? 1 : -1, fall = Math.min(260, 120 + brick.rect.h), rotation = direction * (8 + Math.random() * 15);
-      debris.push({ x: brick.rect.x, y: brick.rect.y, w: Math.max(2, brick.rect.w), h: Math.max(2, brick.rect.h), color: brick.color, vx: direction * (45 + Math.random() * 70), vy: 35 + Math.random() * 45, rotation: 0, vr: direction * (2.5 + Math.random() * 3), life: reduceMotion ? .18 : .7 });
-      if (brick.kind === "element") {
-        const animation = brick.element.animate?.([{ transform: "translate3d(0,0,0) rotate(0deg)", opacity: 1 }, { transform: `translate3d(${direction * (30 + Math.random() * 45)}px,${fall}px,0) rotate(${rotation}deg)`, opacity: 0 }], { duration: reduceMotion ? 180 : 620, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" });
+        const animation = brick.element.animate?.(reduceMotion ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: "translate3d(0,0,0) rotate(0deg)", opacity: 1 }, { transform: `translate3d(${direction * 14}px,72px,0) rotate(${direction * 6}deg)`, opacity: 0 }], { duration: reduceMotion ? 140 : 240, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" });
         if (animation) animation.onfinish = () => { brick.element.style.visibility = "hidden"; }; else brick.element.style.visibility = "hidden";
+      } else if (brick.kind === "surface") {
+        brick.element.dataset.pbSurfaceDestroyed = "true"; brick.element.style.background = "transparent"; brick.element.style.boxShadow = "none"; brick.element.style.filter = "none";
       } else {
         const side = brick.kind.split("-")[1], cap = side[0].toUpperCase() + side.slice(1);
         brick.element.style[`border${cap}Color`] = "transparent";
+        debris.push({ x: brick.rect.x, y: brick.rect.y, w: Math.max(2, brick.rect.w), h: Math.max(2, brick.rect.h), color: brick.color, vx: direction * 25, vy: 40, rotation: 0, vr: direction * 2.5, life: reduceMotion ? .14 : .34 });
       }
-      burst(ball.x, ball.y, brick.color, 24, 1.15); tone(130, .11, "sawtooth", .04, 82); noise(.11, .05);
+      tone(170, .065, "square", .028, 125); noise(.045, .018);
       if (Math.random() < .32 && !drops.some((drop) => drop.active)) drops.push({ x: ball.x, y: ball.y, w: 46, h: 24, vy: 135, active: true });
-      if (state.destroyed >= bricks.length) finish(true); else setTimeout(updateVisible, 650);
+      if (state.destroyed >= bricks.length) finish(true); else { compactClearedTop(brick.rect); setTimeout(updateVisible, 260); }
     }
 
     function paddleHit(ball) { const impact = (ball.x - paddle.x - paddle.width / 2) / (paddle.width / 2), speed = Math.min(690, Math.hypot(ball.vx, ball.vy) * 1.016), angle = impact * 1.08 - Math.PI / 2; ball.vx = Math.cos(angle) * speed; ball.vy = Math.sin(angle) * speed; ball.y = paddle.y - ball.r - 1; burst(ball.x, paddle.y, paddleColor, 6); tone(310, .055, "square", .035, 250); }
@@ -414,7 +432,7 @@
     function keyUp(event) { if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = false; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false; }
     function togglePause() { state.paused = !state.paused; $("#pause-button").textContent = state.paused ? "RESUME" : "PAUSE"; announce(state.paused ? "PAUSED" : "GO"); }
     function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
-    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); win.scrollTo(0, 0); indexPage(); state.raf = requestAnimationFrame(frameLoop); }
+    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); win.scrollTo(0, 0); indexPage(); state.raf = requestAnimationFrame(frameLoop); }
 
     const scrollListener = () => requestAnimationFrame(updateVisible);
     frame.contentDocument.addEventListener("pointermove", (event) => move(event.clientX));

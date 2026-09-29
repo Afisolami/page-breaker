@@ -12,4 +12,6 @@ The launcher also exposes this snippet through its **Embed** control. Add `?url=
 
 The server loads a safe, inert copy of the target page. Scripts and active navigation are removed, while form contents and sandboxed embeds remain visible. Lazy images, responsive image sets, fonts, video, and background media are promoted before play.
 
-Text fragments, controls, images, videos, icons, canvases, decorative surfaces, and even thin borders become collision targets. The level auto-scrolls after a cleared viewport, while manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.
+Every visible word is wrapped as its own one-hit target. Controls, images, videos, icons, canvases, decorative surfaces, and thin borders are also destroyed one element at a time. A hit produces one short fall with restrained particles—there is no multi-hit cracking phase.
+
+When the cleared gap at the top reaches roughly 10% of the viewport, the page scrolls upward to replace that empty space; fully cleared screens still advance automatically, and manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.
