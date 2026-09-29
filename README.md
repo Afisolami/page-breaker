@@ -14,4 +14,6 @@ The server loads a safe, inert copy of the target page. Scripts and active navig
 
 Every visible word is wrapped as its own one-hit target. Controls, images, videos, icons, canvases, decorative surfaces, and thin borders are also destroyed one element at a time. A hit produces one short fall with restrained particles—there is no multi-hit cracking phase.
 
+Collision targets are invisible until they break. The loaded website retains its natural appearance with no target boxes, skeleton lines, or debug highlighting.
+
 When the cleared gap at the top reaches roughly 10% of the viewport, the page scrolls upward to replace that empty space; fully cleared screens still advance automatically, and manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.
