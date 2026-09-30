@@ -7,7 +7,7 @@
   const loadingHost = $("#loading-host"), loadingLabel = $("#loading-label"), loadingPercent = $("#loading-percent"), loadingFill = $("#loading-fill"), loadingDetail = $("#loading-detail");
   const stage = $("#game-stage"), frame = $("#site-frame"), canvas = $("#game-canvas"), ctx = canvas.getContext("2d");
   const trackerHost = $("#tracker-host"), trackerPercent = $("#tracker-percent"), trackerFill = $("#tracker-fill"), trackerCount = $("#tracker-count"), trackerDepth = $("#tracker-depth");
-  const scoreEl = $("#score"), livesEl = $("#lives"), messageEl = $("#game-message"), scrollCue = $("#scroll-cue"), powerPanel = $("#power-panel"), powerFill = $("#power-fill");
+  const scoreEl = $("#score"), livesEl = $("#lives"), messageEl = $("#game-message"), scrollCue = $("#scroll-cue"), powerPanel = $("#power-panel");
   const endModal = $("#end-modal"), endHost = $("#end-host"), endKicker = $("#end-kicker"), endTitle = $("#end-title"), endScore = $("#end-score");
   const embedModal = $("#embed-modal"), embedCode = $("#embed-code"), embedCopy = $("#embed-copy");
   let audio = null, game = null, loadingTimer = null;
@@ -225,7 +225,7 @@
   }
 
   function createGame(doc, win, url, theme) {
-    const state = { running: true, paused: false, over: false, sound: true, score: 0, lives: 3, destroyed: 0, last: performance.now(), launchAt: performance.now() + 900, multiUntil: 0, scrollLevel: 1, advanceTimer: null, raf: 0 };
+    const state = { running: true, paused: false, over: false, sound: true, score: 0, lives: 3, destroyed: 0, last: performance.now(), launchAt: performance.now() + 900, multiUntil: 0, bombUntil: 0, wideUntil: 0, shieldCharges: 0, scrollLevel: 1, advanceTimer: null, raf: 0, powerPaintAt: 0 };
     const keys = { left: false, right: false };
     const paddle = { x: innerWidth / 2 - 64, targetX: innerWidth / 2 - 64, y: innerHeight - 48, width: 128, height: 13 };
     let width = innerWidth, height = innerHeight, dpr = 1, balls = [], particles = [], debris = [], drops = [], bricks = [], visible = [], scrollQueued = false, paddleColor = theme.paddle;
@@ -348,7 +348,7 @@
       const total = bricks.length, percent = total ? Math.round(state.destroyed / total * 100) : 0;
       trackerPercent.textContent = `${percent}%`; trackerFill.style.width = `${percent}%`; trackerCount.textContent = `${state.destroyed} / ${total}`;
       scoreEl.textContent = String(state.score).padStart(6, "0"); livesEl.innerHTML = "";
-      for (let i = 0; i < 3; i += 1) { const dot = document.createElement("i"); dot.className = `life${i >= state.lives ? " lost" : ""}`; livesEl.append(dot); }
+      for (let i = 0; i < Math.max(3, state.lives); i += 1) { const dot = document.createElement("i"); dot.className = `life${i >= state.lives ? " lost" : ""}`; livesEl.append(dot); }
     }
 
     function resize() {
@@ -366,7 +366,8 @@
       bounce(ball, brick.rect); destroyBrick(brick, ball); updateHud();
     }
 
-    function destroyBrick(brick, ball) {
+    function destroyBrick(brick, ball, options = {}) {
+      const { allowDrop = true, settle = true, playSound = true } = options;
       brick.alive = false; state.destroyed += 1; state.score += 150; brick.element.dataset.pbDestroyed = "true";
       const direction = ball.vx >= 0 ? 1 : -1;
       if (brick.kind === "element") {
@@ -379,21 +380,77 @@
         brick.element.style[`border${cap}Color`] = "transparent";
         debris.push({ x: brick.rect.x, y: brick.rect.y, w: Math.max(2, brick.rect.w), h: Math.max(2, brick.rect.h), color: brick.color, vx: direction * 25, vy: 40, rotation: 0, vr: direction * 2.5, life: reduceMotion ? .14 : .34 });
       }
-      tone(170, .065, "square", .028, 125); noise(.045, .018);
-      if (Math.random() < .32 && !drops.some((drop) => drop.active)) drops.push({ x: ball.x, y: ball.y, w: 46, h: 24, vy: 135, active: true });
-      if (state.destroyed >= bricks.length) finish(true); else { compactClearedTop(brick.rect); setTimeout(updateVisible, 260); }
+      if (playSound) { tone(170, .065, "square", .028, 125); noise(.045, .018); }
+      if (allowDrop && Math.random() < .24 && drops.filter((drop) => drop.active).length < 3) spawnDrop(ball.x, ball.y);
+      if (settle) {
+        if (state.destroyed >= bricks.length) finish(true); else { compactClearedTop(brick.rect); setTimeout(updateVisible, 260); }
+      }
     }
 
     function paddleHit(ball) { const impact = (ball.x - paddle.x - paddle.width / 2) / (paddle.width / 2), speed = Math.min(690, Math.hypot(ball.vx, ball.vy) * 1.016), angle = impact * 1.08 - Math.PI / 2; ball.vx = Math.cos(angle) * speed; ball.vy = Math.sin(angle) * speed; ball.y = paddle.y - ball.r - 1; burst(ball.x, paddle.y, paddleColor, 6); tone(310, .055, "square", .035, 250); }
-    function activateMulti(now) { const source = balls[0] || makeBall(), speed = Math.hypot(source.vx, source.vy), base = Math.atan2(source.vy, source.vx); balls = [-.38, 0, .38].map((offset) => { const next = makeBall(source.x, source.y, base + offset); next.vx = Math.cos(base + offset) * speed; next.vy = Math.sin(base + offset) * speed; return next; }); state.multiUntil = now + 12000; powerPanel.classList.add("on"); state.score += 500; announce("MULTIBALL ×3", 950); tone(520, .2, "triangle", .055, 780); updateHud(); }
-    function loseBall() { state.lives -= 1; updateHud(); tone(220, .38, "sawtooth", .06, 65); noise(.18, .025); if (state.lives <= 0) return finish(false); announce(`${state.lives} ${state.lives === 1 ? "LIFE" : "LIVES"} LEFT`, 900); state.multiUntil = 0; powerPanel.classList.remove("on"); balls = [makeBall(paddle.x + paddle.width / 2, paddle.y - 18, -Math.PI * (.28 + Math.random() * .44))]; }
+    const powerTypes = ["multi", "bomb", "wide", "shield", "life"];
+    const powerLook = {
+      multi: { label: "×2", color: "#6558ff" }, bomb: { label: "BOMB", color: "#ff4f32" },
+      wide: { label: "WIDE", color: "#20d6b5" }, shield: { label: "SAVE", color: "#32a9ff" }, life: { label: "+1", color: "#f4ff38" }
+    };
+    function spawnDrop(x, y) {
+      const type = powerTypes[Math.floor(Math.random() * powerTypes.length)], look = powerLook[type];
+      drops.push({ type, label: look.label, color: look.color, x, y, w: type === "bomb" || type === "wide" ? 58 : 46, h: 24, vy: 135, active: true });
+    }
+    function activateMulti(now) {
+      const current = balls.length ? [...balls] : [makeBall()];
+      const clones = current.map((source, index) => {
+        const speed = Math.hypot(source.vx, source.vy), base = Math.atan2(source.vy, source.vx), offset = (index % 2 ? 1 : -1) * .26;
+        const next = makeBall(source.x, source.y, base + offset);
+        next.vx = Math.cos(base + offset) * speed; next.vy = Math.sin(base + offset) * speed; return next;
+      });
+      balls = [...current, ...clones].slice(0, 32); state.multiUntil = now + 12000; state.score += 500;
+      announce(`${current.length} × 2 = ${balls.length} BALLS`, 1100); tone(520, .2, "triangle", .055, 780); updateHud();
+    }
+    function activatePower(type, now) {
+      if (type === "multi") return activateMulti(now);
+      if (type === "bomb") { state.bombUntil = now + 10000; state.score += 400; announce("EXPLOSIVE BALLS", 950); tone(110, .24, "sawtooth", .055, 48); noise(.12, .035); }
+      if (type === "wide") { state.wideUntil = now + 10000; state.score += 300; announce("WIDE PADDLE", 850); tone(420, .16, "triangle", .045, 620); }
+      if (type === "shield") { state.shieldCharges = Math.min(2, state.shieldCharges + 1); state.score += 250; announce("BOTTOM SHIELD READY", 950); tone(680, .16, "sine", .04, 920); }
+      if (type === "life") { state.lives = Math.min(5, state.lives + 1); state.score += 250; announce("EXTRA LIFE", 850); tone(560, .22, "triangle", .045, 880); }
+      updateHud();
+    }
+    function explodeAt(x, y, ball) {
+      const radius = Math.max(110, Math.min(170, width * .12));
+      const struck = visible.filter((brick) => {
+        if (!brick.alive || !brick.rect) return false;
+        const nearX = Math.max(brick.rect.x, Math.min(x, brick.rect.x + brick.rect.w));
+        const nearY = Math.max(brick.rect.y, Math.min(y, brick.rect.y + brick.rect.h));
+        return (nearX - x) ** 2 + (nearY - y) ** 2 <= radius ** 2;
+      });
+      struck.forEach((brick) => destroyBrick(brick, ball, { allowDrop: false, settle: false, playSound: false }));
+      burst(x, y, "#ff7138", reduceMotion ? 10 : 30, 1.45); tone(76, .28, "sawtooth", .075, 34); noise(.22, .055);
+      state.score += Math.max(0, struck.length - 1) * 75; updateHud();
+      if (state.destroyed >= bricks.length) finish(true); else { compactClearedTop({ y }); setTimeout(updateVisible, 260); }
+    }
+    function paintPowers(now) {
+      if (now < state.powerPaintAt) return;
+      state.powerPaintAt = now + 100;
+      const entries = [];
+      if (state.multiUntil > now) entries.push(["×2 BALLS", state.multiUntil - now, 12000, "#6558ff"]);
+      if (state.bombUntil > now) entries.push(["BOMB", state.bombUntil - now, 10000, "#ff4f32"]);
+      if (state.wideUntil > now) entries.push(["WIDE", state.wideUntil - now, 10000, "#20d6b5"]);
+      if (state.shieldCharges) entries.push([`SHIELD ×${state.shieldCharges}`, 1, 1, "#32a9ff"]);
+      powerPanel.innerHTML = entries.map(([label, left, total, color]) => `<span class="power-chip" style="--power:${color}"><em>${label}</em><i><b style="transform:scaleX(${Math.max(0, left / total)})"></b></i></span>`).join("");
+      powerPanel.classList.toggle("on", Boolean(entries.length));
+    }
+    function loseBall() { state.lives -= 1; updateHud(); tone(220, .38, "sawtooth", .06, 65); noise(.18, .025); if (state.lives <= 0) return finish(false); announce(`${state.lives} ${state.lives === 1 ? "LIFE" : "LIVES"} LEFT`, 900); state.multiUntil = 0; balls = [makeBall(paddle.x + paddle.width / 2, paddle.y - 18, -Math.PI * (.28 + Math.random() * .44))]; }
     function finish(won) { state.over = true; state.running = false; endKicker.textContent = won ? "WEBSITE DESTROYED" : "OUT OF BOUNDS"; endTitle.innerHTML = won ? "NOTHING LEFT<br>BUT PIXELS." : "THE PAGE<br>SURVIVED."; endScore.textContent = `FINAL SCORE ${String(state.score).padStart(6, "0")}`; endModal.hidden = false; tone(won ? 660 : 95, .48, won ? "triangle" : "sawtooth", .06, won ? 920 : 55); }
 
     function update(dt, now) {
       if (!state.running || state.paused || now < state.launchAt) return;
       if (keys.left) paddle.targetX -= 840 * dt; if (keys.right) paddle.targetX += 840 * dt;
       paddle.targetX = Math.max(0, Math.min(width - paddle.width, paddle.targetX)); paddle.x += (paddle.targetX - paddle.x) * Math.min(1, dt * 17);
-      if (state.multiUntil) { const left = Math.max(0, state.multiUntil - now); powerFill.style.transform = `scaleX(${left / 12000})`; if (!left) { balls = [balls[0]].filter(Boolean); state.multiUntil = 0; powerPanel.classList.remove("on"); announce("BACK TO ONE"); } }
+      if (state.multiUntil && now >= state.multiUntil) { balls = [balls[0]].filter(Boolean); state.multiUntil = 0; announce("BACK TO ONE"); }
+      if (state.bombUntil && now >= state.bombUntil) { state.bombUntil = 0; announce("BOMBS OFF", 650); }
+      const basePaddleWidth = Math.max(92, Math.min(144, width * .12)), desiredPaddleWidth = now < state.wideUntil ? Math.min(width * .42, basePaddleWidth * 1.7) : basePaddleWidth;
+      if (Math.abs(paddle.width - desiredPaddleWidth) > .5) { const center = paddle.x + paddle.width / 2; paddle.width += (desiredPaddleWidth - paddle.width) * Math.min(1, dt * 12); paddle.x = Math.max(0, Math.min(width - paddle.width, center - paddle.width / 2)); paddle.targetX = paddle.x; }
+      paintPowers(now);
       const step = dt / 2;
       for (let pass = 0; pass < 2; pass += 1) for (const ball of balls) {
         if (pass === 0) { ball.trail.unshift({ x: ball.x, y: ball.y }); if (ball.trail.length > 9) ball.trail.pop(); }
@@ -402,10 +459,11 @@
         if (ball.x + ball.r >= width) { ball.x = width - ball.r; ball.vx = -Math.abs(ball.vx); tone(170); }
         if (ball.y - ball.r <= 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); tone(185); }
         if (ball.vy > 0 && collide(ball, { x: paddle.x, y: paddle.y, w: paddle.width, h: paddle.height })) paddleHit(ball);
-        for (const brick of visible) if (brick.alive && brick.rect && collide(ball, brick.rect)) { hitBrick(brick, ball); break; }
+        for (const brick of visible) if (brick.alive && brick.rect && collide(ball, brick.rect)) { if (now < state.bombUntil) { bounce(ball, brick.rect); explodeAt(ball.x, ball.y, ball); } else hitBrick(brick, ball); break; }
       }
+      if (state.shieldCharges) for (const ball of balls) if (ball.vy > 0 && ball.y + ball.r >= height - 8) { ball.y = height - ball.r - 9; ball.vy = -Math.abs(ball.vy); state.shieldCharges -= 1; burst(ball.x, height - 8, "#32a9ff", 14, 1.1); tone(740, .16, "triangle", .055, 1020); announce("SHIELD SAVED IT", 700); break; }
       balls = balls.filter((ball) => ball.y - ball.r < height + 24); if (!balls.length && !state.over) loseBall();
-      for (const drop of drops) { if (!drop.active) continue; drop.y += drop.vy * dt; if (collide({ x: drop.x, y: drop.y, r: drop.w / 2 }, { x: paddle.x, y: paddle.y, w: paddle.width, h: paddle.height })) { drop.active = false; activateMulti(now); } else if (drop.y > height + 35) drop.active = false; }
+      for (const drop of drops) { if (!drop.active) continue; drop.y += drop.vy * dt; if (collide({ x: drop.x, y: drop.y, r: drop.w / 2 }, { x: paddle.x, y: paddle.y, w: paddle.width, h: paddle.height })) { drop.active = false; activatePower(drop.type, now); } else if (drop.y > height + 35) drop.active = false; }
       for (const particle of particles) { particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.vy += 310 * dt; particle.rotation += dt * 5; particle.life -= dt; }
       particles = particles.filter((particle) => particle.life > 0);
       for (const piece of debris) { piece.x += piece.vx * dt; piece.y += piece.vy * dt; piece.vy += 520 * dt; piece.rotation += piece.vr * dt; piece.life -= dt; }
@@ -417,9 +475,10 @@
       const paddleSamples = [.2, .5, .8].map((ratio) => contrastColor(backgroundAt(doc, win, paddle.x + paddle.width * ratio, paddle.y + paddle.height / 2)));
       paddleColor = paddleSamples.filter((color) => color === "#ffffff").length >= 2 ? "#ffffff" : "#090a0e";
       ctx.globalAlpha = 1;
-      for (const ball of balls) { const color = contrastColor(backgroundAt(doc, win, ball.x, ball.y)), edge = color === "#ffffff" ? "#090a0e" : "#ffffff"; ball.trail.forEach((point, index) => { ctx.globalAlpha = (1 - index / ball.trail.length) * .16; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(point.x, point.y, ball.r * (1 - index * .055), 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1; ctx.shadowColor = edge; ctx.shadowBlur = 12; ctx.fillStyle = color; ctx.strokeStyle = edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; }
+      for (const ball of balls) { const bombed = now < state.bombUntil, color = bombed ? "#ff4f32" : contrastColor(backgroundAt(doc, win, ball.x, ball.y)), edge = bombed ? "#fff3d0" : color === "#ffffff" ? "#090a0e" : "#ffffff"; ball.trail.forEach((point, index) => { ctx.globalAlpha = (1 - index / ball.trail.length) * (bombed ? .28 : .16); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(point.x, point.y, ball.r * (1 - index * .055), 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1; ctx.shadowColor = bombed ? "#ff7138" : edge; ctx.shadowBlur = bombed ? 20 : 12; ctx.fillStyle = color; ctx.strokeStyle = edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ball.x, ball.y, bombed ? ball.r * 1.18 : ball.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); if (bombed) { ctx.strokeStyle = "#151515"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ball.x + 3, ball.y - ball.r); ctx.quadraticCurveTo(ball.x + 8, ball.y - ball.r - 7, ball.x + 11, ball.y - ball.r - 3); ctx.stroke(); ctx.fillStyle = "#f4ff38"; ctx.beginPath(); ctx.arc(ball.x + 11, ball.y - ball.r - 3, 2.5, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; }
       const paddleEdge = paddleColor === "#ffffff" ? "#090a0e" : "#ffffff"; ctx.fillStyle = paddleColor; ctx.strokeStyle = paddleEdge; ctx.lineWidth = 1.5; ctx.shadowColor = paddleEdge; ctx.shadowBlur = 10; ctx.beginPath(); ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, paddle.height / 2); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
-      for (const drop of drops) if (drop.active) { ctx.fillStyle = "#6558ff"; ctx.beginPath(); ctx.roundRect(drop.x - drop.w / 2, drop.y - drop.h / 2, drop.w, drop.h, 12); ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = "700 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("×3", drop.x, drop.y + 1); }
+      if (state.shieldCharges) { ctx.strokeStyle = "rgba(50,169,255,.9)"; ctx.lineWidth = 3; ctx.shadowColor = "#32a9ff"; ctx.shadowBlur = 16; ctx.beginPath(); ctx.moveTo(16, height - 8); ctx.lineTo(width - 16, height - 8); ctx.stroke(); ctx.shadowBlur = 0; }
+      for (const drop of drops) if (drop.active) { ctx.fillStyle = drop.color; ctx.shadowColor = drop.color; ctx.shadowBlur = 14; ctx.beginPath(); ctx.roundRect(drop.x - drop.w / 2, drop.y - drop.h / 2, drop.w, drop.h, 12); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = drop.type === "life" ? "#111" : "#fff"; ctx.font = "800 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(drop.label, drop.x, drop.y + 1); }
       for (const piece of debris) { ctx.save(); ctx.globalAlpha = Math.max(0, piece.life * 1.45); ctx.translate(piece.x + piece.w / 2, piece.y + piece.h / 2); ctx.rotate(piece.rotation); ctx.fillStyle = piece.color; ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w, Math.min(piece.h, 12)); ctx.restore(); }
       for (const particle of particles) { ctx.save(); ctx.globalAlpha = Math.max(0, particle.life * 1.65); ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation); ctx.fillStyle = particle.color; ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size); ctx.restore(); }
       ctx.globalAlpha = 1;
@@ -431,7 +490,7 @@
     function keyUp(event) { if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = false; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false; }
     function togglePause() { state.paused = !state.paused; $("#pause-button").textContent = state.paused ? "RESUME" : "PAUSE"; announce(state.paused ? "PAUSED" : "GO"); }
     function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
-    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); win.scrollTo(0, 0); indexPage(); state.raf = requestAnimationFrame(frameLoop); }
+    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.bombUntil = 0; state.wideUntil = 0; state.shieldCharges = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); powerPanel.innerHTML = ""; win.scrollTo(0, 0); indexPage(); state.raf = requestAnimationFrame(frameLoop); }
 
     const scrollListener = () => requestAnimationFrame(updateVisible);
     frame.contentDocument.addEventListener("pointermove", (event) => move(event.clientX));
