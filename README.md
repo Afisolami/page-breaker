@@ -20,4 +20,8 @@ Power-ups fall from destroyed content. ×2 doubles every ball currently in play 
 
 When the cleared gap at the top reaches roughly 10% of the viewport, the page scrolls upward to replace that empty space; fully cleared screens still advance automatically, and manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.
 
-The tracker, score, and game controls fade away after five seconds without pointer activity. Moving the pointer, touching the game, or using the keyboard reveals them again.
+The tracker, score, and game controls fade away after three seconds. Only pointer movement reveals them again.
+
+Before the ball launches, a short notice explains that clearing the top 10% of the viewport automatically scrolls the website upward to reveal the next section; manual scrolling remains available.
+
+Completed and failed runs can be submitted to a shared global leaderboard. Rankings prioritize the most destroyed elements, then the fastest time, and display the player, website, destruction count, time, and score.

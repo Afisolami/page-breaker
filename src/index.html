@@ -67,11 +67,24 @@
       <div class="power-panel" id="power-panel"></div>
       <div class="game-message" id="game-message"></div>
       <div class="scroll-cue" id="scroll-cue"><span>↓</span> NEXT SECTION</div>
+      <div class="scroll-intro" id="scroll-intro">
+        <span aria-hidden="true">↓</span>
+        <div><strong>AUTO-SCROLL IS ON</strong><small>Clear the top 10% and the page moves up to reveal more. You can still scroll manually.</small></div>
+      </div>
       <div class="stage-controls"><button id="sound-button" type="button">SOUND ON</button><button id="pause-button" type="button">PAUSE</button><button id="exit-button" type="button">EXIT</button></div>
 
       <section class="arcade-modal end-modal" id="end-modal" hidden>
         <div class="modal-bar"><span id="end-host">LEVEL COMPLETE</span><i class="status-light"></i></div>
-        <div class="end-body"><p id="end-kicker">WEBSITE DESTROYED</p><h2 id="end-title">NOTHING LEFT<br />BUT PIXELS.</h2><p id="end-score">FINAL SCORE 000000</p><div><button id="restart-button" type="button">PLAY AGAIN</button><button id="new-site-button" type="button">NEW WEBSITE</button></div></div>
+        <div class="end-body">
+          <div class="end-summary"><p id="end-kicker">WEBSITE DESTROYED</p><h2 id="end-title">NOTHING LEFT<br />BUT PIXELS.</h2><p id="end-score">FINAL SCORE 000000</p></div>
+          <section class="leaderboard" aria-labelledby="leaderboard-title">
+            <div class="leaderboard-heading"><div><span>GLOBAL RANKING</span><h3 id="leaderboard-title">TOP BREAKERS</h3></div><small>MOST DESTROYED · FASTEST TIME</small></div>
+            <form id="leaderboard-form" class="leaderboard-form"><input id="player-name" maxlength="18" autocomplete="nickname" placeholder="PLAYER NAME" aria-label="Player name" required /><button id="leaderboard-submit" type="submit">SUBMIT SCORE</button></form>
+            <p class="leaderboard-status" id="leaderboard-status">LOADING GLOBAL SCORES…</p>
+            <ol class="leaderboard-list" id="leaderboard-list"></ol>
+          </section>
+          <div class="end-actions"><button id="restart-button" type="button">PLAY AGAIN</button><button id="new-site-button" type="button">NEW WEBSITE</button></div>
+        </div>
       </section>
     </section>
 
