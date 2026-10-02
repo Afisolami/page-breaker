@@ -19,3 +19,5 @@ Collision targets are invisible until they break. The loaded website retains its
 Power-ups fall from destroyed content. ×2 doubles every ball currently in play and later returns the game to one ball. Bombs make ball impacts destroy a nearby cluster of page elements, while wide-paddle, bottom-shield, and extra-life pickups add short arcade advantages.
 
 When the cleared gap at the top reaches roughly 10% of the viewport, the page scrolls upward to replace that empty space; fully cleared screens still advance automatically, and manual scrolling remains available. The paddle and every active ball sample the section directly behind them and switch instantly between black and white for maximum contrast.
+
+The tracker, score, and game controls fade away after five seconds without pointer activity. Moving the pointer, touching the game, or using the keyboard reveals them again.

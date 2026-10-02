@@ -228,7 +228,20 @@
     const state = { running: true, paused: false, over: false, sound: true, score: 0, lives: 3, destroyed: 0, last: performance.now(), launchAt: performance.now() + 900, multiUntil: 0, bombUntil: 0, wideUntil: 0, shieldCharges: 0, scrollLevel: 1, advanceTimer: null, raf: 0, powerPaintAt: 0 };
     const keys = { left: false, right: false };
     const paddle = { x: innerWidth / 2 - 64, targetX: innerWidth / 2 - 64, y: innerHeight - 48, width: 128, height: 13 };
-    let width = innerWidth, height = innerHeight, dpr = 1, balls = [], particles = [], debris = [], drops = [], bricks = [], visible = [], scrollQueued = false, paddleColor = theme.paddle;
+    let width = innerWidth, height = innerHeight, dpr = 1, balls = [], particles = [], debris = [], drops = [], bricks = [], visible = [], scrollQueued = false, paddleColor = theme.paddle, hudHideTimer = null, hudHideAt = 0;
+
+    function hideHudWhenIdle() {
+      const remaining = hudHideAt - performance.now();
+      if (remaining > 30) { hudHideTimer = setTimeout(hideHudWhenIdle, remaining); return; }
+      hudHideTimer = null;
+      if (!state.paused && !state.over) stage.classList.add("hud-hidden");
+    }
+
+    function revealHud() {
+      stage.classList.remove("hud-hidden");
+      hudHideAt = performance.now() + 5000;
+      if (!hudHideTimer) hudHideTimer = setTimeout(hideHudWhenIdle, 5000);
+    }
 
     function exposeTextFragments() {
       const walker = doc.createTreeWalker(doc.body, doc.defaultView.NodeFilter.SHOW_TEXT);
@@ -486,19 +499,21 @@
     }
     function frameLoop(now) { const dt = Math.min(.024, Math.max(0, (now - state.last) / 1000)); state.last = now; update(dt, now); draw(now); state.raf = requestAnimationFrame(frameLoop); }
     function move(x) { paddle.targetX = Math.max(0, Math.min(width - paddle.width, x - paddle.width / 2)); }
-    function keyDown(event) { if (["ArrowLeft", "ArrowRight", " "].includes(event.key)) event.preventDefault(); if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = true; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = true; if (event.key === " " && !state.over) togglePause(); }
+    function keyDown(event) { revealHud(); if (["ArrowLeft", "ArrowRight", " "].includes(event.key)) event.preventDefault(); if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = true; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = true; if (event.key === " " && !state.over) togglePause(); }
     function keyUp(event) { if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = false; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false; }
-    function togglePause() { state.paused = !state.paused; $("#pause-button").textContent = state.paused ? "RESUME" : "PAUSE"; announce(state.paused ? "PAUSED" : "GO"); }
-    function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
-    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.bombUntil = 0; state.wideUntil = 0; state.shieldCharges = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); powerPanel.innerHTML = ""; win.scrollTo(0, 0); indexPage(); state.raf = requestAnimationFrame(frameLoop); }
+    function togglePause() { state.paused = !state.paused; $("#pause-button").textContent = state.paused ? "RESUME" : "PAUSE"; announce(state.paused ? "PAUSED" : "GO"); revealHud(); }
+    const pointerMove = (event) => { move(event.clientX); revealHud(); };
+    const outerActivity = () => revealHud();
+    function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); clearTimeout(hudHideTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); removeEventListener("pointermove", outerActivity); removeEventListener("pointerdown", outerActivity); doc.removeEventListener("pointermove", pointerMove); doc.removeEventListener("pointerdown", outerActivity); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.classList.remove("hud-hidden"); stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
+    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.bombUntil = 0; state.wideUntil = 0; state.shieldCharges = 0; state.launchAt = performance.now() + 750; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); powerPanel.innerHTML = ""; win.scrollTo(0, 0); indexPage(); revealHud(); state.raf = requestAnimationFrame(frameLoop); }
 
     const scrollListener = () => requestAnimationFrame(updateVisible);
-    frame.contentDocument.addEventListener("pointermove", (event) => move(event.clientX));
+    doc.addEventListener("pointermove", pointerMove); doc.addEventListener("pointerdown", outerActivity);
     win.addEventListener("scroll", scrollListener, { passive: true }); win.addEventListener("keydown", keyDown, { passive: false }); win.addEventListener("keyup", keyUp);
-    addEventListener("resize", resize); addEventListener("keydown", keyDown, { passive: false }); addEventListener("keyup", keyUp);
+    addEventListener("resize", resize); addEventListener("keydown", keyDown, { passive: false }); addEventListener("keyup", keyUp); addEventListener("pointermove", outerActivity, { passive: true }); addEventListener("pointerdown", outerActivity, { passive: true });
     $("#sound-button").onclick = () => { state.sound = !state.sound; $("#sound-button").textContent = state.sound ? "SOUND ON" : "SOUND OFF"; if (state.sound) tone(320); };
     $("#pause-button").onclick = togglePause; $("#exit-button").onclick = () => cleanup(true); $("#restart-button").onclick = restart; $("#new-site-button").onclick = () => cleanup(true);
-    resize(); indexPage(); balls = [makeBall()]; announce("BREAK THE PAGE", 900); state.raf = requestAnimationFrame(frameLoop);
+    resize(); indexPage(); balls = [makeBall()]; announce("BREAK THE PAGE", 900); revealHud(); state.raf = requestAnimationFrame(frameLoop);
     return { get sound() { return state.sound; }, cleanup, restart };
   }
 })();
