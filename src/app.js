@@ -3,11 +3,12 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const coarsePointer = matchMedia("(pointer: coarse)").matches;
   const launcher = $("#launcher"), entryModal = $("#entry-modal"), loadingModal = $("#loading-modal"), form = $("#url-form"), input = $("#url-input"), errorEl = $("#error-message");
   const loadingHost = $("#loading-host"), loadingLabel = $("#loading-label"), loadingPercent = $("#loading-percent"), loadingFill = $("#loading-fill"), loadingDetail = $("#loading-detail");
   const stage = $("#game-stage"), frame = $("#site-frame"), canvas = $("#game-canvas"), ctx = canvas.getContext("2d");
   const trackerHost = $("#tracker-host"), trackerPercent = $("#tracker-percent"), trackerFill = $("#tracker-fill"), trackerCount = $("#tracker-count"), trackerDepth = $("#tracker-depth");
-  const scoreEl = $("#score"), livesEl = $("#lives"), messageEl = $("#game-message"), scrollCue = $("#scroll-cue"), powerPanel = $("#power-panel");
+  const scoreEl = $("#score"), livesEl = $("#lives"), messageEl = $("#game-message"), scrollCue = $("#scroll-cue"), powerPanel = $("#power-panel"), touchGuide = $("#touch-guide");
   const endModal = $("#end-modal"), endHost = $("#end-host"), endKicker = $("#end-kicker"), endTitle = $("#end-title"), endScore = $("#end-score");
   const scrollIntro = $("#scroll-intro"), leaderboardForm = $("#leaderboard-form"), playerName = $("#player-name"), leaderboardSubmit = $("#leaderboard-submit"), leaderboardStatus = $("#leaderboard-status"), leaderboardList = $("#leaderboard-list");
   const embedModal = $("#embed-modal"), embedCode = $("#embed-code"), embedCopy = $("#embed-copy");
@@ -125,7 +126,7 @@
     base.href = finalUrl;
     parsed.head.prepend(base);
     const style = parsed.createElement("style");
-    style.textContent = `html{scroll-behavior:auto!important}body{min-height:100vh!important}*{animation-play-state:paused!important}a,button,input,textarea,select{cursor:default!important}iframe{pointer-events:none!important}[data-pb-destroyed]{pointer-events:none!important}[data-pb-surface-destroyed]::before,[data-pb-surface-destroyed]::after{opacity:0!important}`;
+    style.textContent = `html{scroll-behavior:auto!important;overscroll-behavior-x:none!important}body{min-height:100vh!important;touch-action:pan-y!important;overscroll-behavior-x:none!important}*{animation-play-state:paused!important}a,button,input,textarea,select{cursor:default!important}iframe{pointer-events:none!important}[data-pb-destroyed]{pointer-events:none!important}[data-pb-surface-destroyed]::before,[data-pb-surface-destroyed]::after{opacity:0!important}`;
     parsed.head.append(style);
     return `<!doctype html>${parsed.documentElement.outerHTML}`;
   }
@@ -245,7 +246,7 @@
     const state = { running: true, paused: false, over: false, sound: true, score: 0, lives: 3, destroyed: 0, last: performance.now(), launchAt, startedAt: launchAt, endedAt: 0, pausedAt: 0, pausedTotal: 0, submitted: false, multiUntil: 0, bombUntil: 0, wideUntil: 0, shieldCharges: 0, scrollLevel: 1, advanceTimer: null, raf: 0, powerPaintAt: 0 };
     const keys = { left: false, right: false };
     const paddle = { x: innerWidth / 2 - 64, targetX: innerWidth / 2 - 64, y: innerHeight - 48, width: 128, height: 13 };
-    let width = innerWidth, height = innerHeight, dpr = 1, balls = [], particles = [], debris = [], drops = [], bricks = [], visible = [], scrollQueued = false, paddleColor = theme.paddle, hudHideTimer = null, hudHideAt = 0, introTimer = null;
+    let width = innerWidth, height = innerHeight, dpr = 1, balls = [], particles = [], debris = [], drops = [], bricks = [], visible = [], scrollQueued = false, paddleColor = theme.paddle, hudHideTimer = null, hudHideAt = 0, introTimer = null, touchPointerId = null, lastMouseX = null, lastMouseY = null;
 
     function hideHudWhenIdle() {
       const remaining = hudHideAt - performance.now();
@@ -263,6 +264,12 @@
     function introduceAutoScroll() {
       clearTimeout(introTimer); scrollIntro.classList.add("show");
       introTimer = setTimeout(() => scrollIntro.classList.remove("show"), 3200);
+    }
+
+    function introduceTouchControls() {
+      if (!coarsePointer) return;
+      touchGuide.classList.add("show");
+      setTimeout(() => touchGuide.classList.remove("show"), 4200);
     }
 
     function exposeTextFragments() {
@@ -389,9 +396,10 @@
     function resize() {
       width = innerWidth; height = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
       canvas.width = width * dpr; canvas.height = height * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paddle.width = Math.max(92, Math.min(144, width * .12)); paddle.y = height - 48; paddle.x = Math.min(paddle.x, width - paddle.width); paddle.targetX = paddle.x; updateVisible();
+      paddle.width = coarsePointer ? Math.max(104, Math.min(152, width * .28)) : Math.max(92, Math.min(144, width * .12));
+      paddle.y = height - (coarsePointer ? 78 : 48); paddle.x = Math.min(paddle.x, width - paddle.width); paddle.targetX = paddle.x; updateVisible();
     }
-    function makeBall(x = width / 2, y = paddle.y - 18, angle = -Math.PI * .64) { const speed = Math.max(360, Math.min(530, width * .38)); return { x, y, r: width < 640 ? 7 : 8, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, trail: [] }; }
+    function makeBall(x = width / 2, y = paddle.y - 18, angle = -Math.PI * .64) { const speed = coarsePointer ? Math.max(300, Math.min(460, width * .72)) : Math.max(360, Math.min(530, width * .38)); return { x, y, r: width < 640 ? 7 : 8, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, trail: [] }; }
     function announce(text, duration = 750) { messageEl.textContent = text; messageEl.classList.add("show"); clearTimeout(announce.timer); announce.timer = setTimeout(() => messageEl.classList.remove("show"), duration); }
     function collide(ball, rect) { const x = Math.max(rect.x, Math.min(ball.x, rect.x + rect.w)), y = Math.max(rect.y, Math.min(ball.y, rect.y + rect.h)), dx = ball.x - x, dy = ball.y - y; return dx * dx + dy * dy <= ball.r * ball.r; }
     function bounce(ball, rect) { const d = [Math.abs(ball.x + ball.r - rect.x), Math.abs(ball.x - ball.r - rect.x - rect.w), Math.abs(ball.y + ball.r - rect.y), Math.abs(ball.y - ball.r - rect.y - rect.h)], m = Math.min(...d); if (m === d[0]) { ball.x = rect.x - ball.r; ball.vx = -Math.abs(ball.vx); } else if (m === d[1]) { ball.x = rect.x + rect.w + ball.r; ball.vx = Math.abs(ball.vx); } else if (m === d[2]) { ball.y = rect.y - ball.r; ball.vy = -Math.abs(ball.vy); } else { ball.y = rect.y + rect.h + ball.r; ball.vy = Math.abs(ball.vy); } }
@@ -558,18 +566,35 @@
     function keyDown(event) { if (["ArrowLeft", "ArrowRight", " "].includes(event.key)) event.preventDefault(); if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = true; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = true; if (event.key === " " && !state.over) togglePause(); }
     function keyUp(event) { if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = false; if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false; }
     function togglePause() { const now = performance.now(); state.paused = !state.paused; if (state.paused) state.pausedAt = now; else if (state.pausedAt) { state.pausedTotal += now - state.pausedAt; state.pausedAt = 0; } $("#pause-button").textContent = state.paused ? "RESUME" : "PAUSE"; announce(state.paused ? "PAUSED" : "GO"); }
-    const pointerMove = (event) => { move(event.clientX); revealHud(); };
-    const outerActivity = () => revealHud();
-    function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); clearTimeout(hudHideTimer); clearTimeout(introTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); removeEventListener("pointermove", outerActivity); doc.removeEventListener("pointermove", pointerMove); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.classList.remove("hud-hidden"); scrollIntro.classList.remove("show"); leaderboardForm.onsubmit = null; stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
-    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.bombUntil = 0; state.wideUntil = 0; state.shieldCharges = 0; state.launchAt = performance.now() + 3500; state.startedAt = state.launchAt; state.endedAt = 0; state.pausedAt = 0; state.pausedTotal = 0; state.submitted = false; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); powerPanel.innerHTML = ""; win.scrollTo(0, 0); indexPage(); revealHud(); introduceAutoScroll(); state.raf = requestAnimationFrame(frameLoop); }
+    function canMovePaddle(event) { return !event.target?.closest?.("button,input,textarea,select,a"); }
+    function pointerDown(event) {
+      revealHud();
+      if (event.pointerType !== "touch") return;
+      touchPointerId = event.pointerId; touchGuide.classList.remove("show");
+      if (canMovePaddle(event)) move(event.clientX);
+    }
+    function pointerMove(event) {
+      if (event.pointerType === "mouse") {
+        move(event.clientX);
+        if (width <= 720) return;
+        const actuallyMoved = lastMouseX === null || Math.abs(event.clientX - lastMouseX) > 1 || Math.abs(event.clientY - lastMouseY) > 1;
+        lastMouseX = event.clientX; lastMouseY = event.clientY;
+        if (actuallyMoved) revealHud();
+        return;
+      }
+      if (event.pointerType === "touch" && event.pointerId === touchPointerId) move(event.clientX);
+    }
+    function pointerEnd(event) { if (event.pointerId === touchPointerId) touchPointerId = null; }
+    function cleanup(showLauncher = true) { cancelAnimationFrame(state.raf); clearTimeout(state.advanceTimer); clearTimeout(hudHideTimer); clearTimeout(introTimer); removeEventListener("resize", resize); removeEventListener("keydown", keyDown); removeEventListener("keyup", keyUp); removeEventListener("pointerdown", pointerDown); removeEventListener("pointermove", pointerMove); removeEventListener("pointerup", pointerEnd); removeEventListener("pointercancel", pointerEnd); doc.removeEventListener("pointerdown", pointerDown); doc.removeEventListener("pointermove", pointerMove); doc.removeEventListener("pointerup", pointerEnd); doc.removeEventListener("pointercancel", pointerEnd); win.removeEventListener("scroll", scrollListener); win.removeEventListener("keydown", keyDown); win.removeEventListener("keyup", keyUp); stage.classList.remove("hud-hidden"); scrollIntro.classList.remove("show"); touchGuide.classList.remove("show"); leaderboardForm.onsubmit = null; stage.hidden = true; endModal.hidden = true; frame.srcdoc = ""; game = null; if (showLauncher) { launcher.hidden = false; entryModal.hidden = false; input.focus(); } }
+    function restart() { cancelAnimationFrame(state.raf); bricks.forEach((brick) => { brick.element.getAnimations().forEach((animation) => animation.cancel()); brick.element.style.cssText = brick.original; delete brick.element.dataset.pbDestroyed; delete brick.element.dataset.pbSurfaceDestroyed; }); state.running = true; state.paused = false; state.over = false; state.score = 0; state.lives = 3; state.destroyed = 0; state.multiUntil = 0; state.bombUntil = 0; state.wideUntil = 0; state.shieldCharges = 0; state.launchAt = performance.now() + 3500; state.startedAt = state.launchAt; state.endedAt = 0; state.pausedAt = 0; state.pausedTotal = 0; state.submitted = false; state.last = performance.now(); particles = []; debris = []; drops = []; balls = [makeBall()]; endModal.hidden = true; powerPanel.classList.remove("on"); powerPanel.innerHTML = ""; win.scrollTo(0, 0); indexPage(); revealHud(); introduceAutoScroll(); introduceTouchControls(); state.raf = requestAnimationFrame(frameLoop); }
 
     const scrollListener = () => requestAnimationFrame(updateVisible);
-    doc.addEventListener("pointermove", pointerMove);
+    doc.addEventListener("pointerdown", pointerDown, { passive: true }); doc.addEventListener("pointermove", pointerMove, { passive: true }); doc.addEventListener("pointerup", pointerEnd, { passive: true }); doc.addEventListener("pointercancel", pointerEnd, { passive: true });
     win.addEventListener("scroll", scrollListener, { passive: true }); win.addEventListener("keydown", keyDown, { passive: false }); win.addEventListener("keyup", keyUp);
-    addEventListener("resize", resize); addEventListener("keydown", keyDown, { passive: false }); addEventListener("keyup", keyUp); addEventListener("pointermove", outerActivity, { passive: true });
+    addEventListener("resize", resize); addEventListener("keydown", keyDown, { passive: false }); addEventListener("keyup", keyUp); addEventListener("pointerdown", pointerDown, { passive: true }); addEventListener("pointermove", pointerMove, { passive: true }); addEventListener("pointerup", pointerEnd, { passive: true }); addEventListener("pointercancel", pointerEnd, { passive: true });
     $("#sound-button").onclick = () => { state.sound = !state.sound; $("#sound-button").textContent = state.sound ? "SOUND ON" : "SOUND OFF"; if (state.sound) tone(320); };
     $("#pause-button").onclick = togglePause; $("#exit-button").onclick = () => cleanup(true); $("#restart-button").onclick = restart; $("#new-site-button").onclick = () => cleanup(true);
-    resize(); indexPage(); balls = [makeBall()]; announce("BREAK THE PAGE", 900); revealHud(); introduceAutoScroll(); state.raf = requestAnimationFrame(frameLoop);
+    resize(); indexPage(); balls = [makeBall()]; announce("BREAK THE PAGE", 900); revealHud(); introduceAutoScroll(); introduceTouchControls(); state.raf = requestAnimationFrame(frameLoop);
     return { get sound() { return state.sound; }, cleanup, restart };
   }
 })();
