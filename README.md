@@ -5,7 +5,7 @@ Page Breaker is a full-screen arcade launcher that turns a pasted public website
 ## Add it to a website
 
 ```html
-<iframe src="https://page-breaker-game.tact-studios0.chatgpt.site" title="Page Breaker" allow="autoplay" style="width:100%;height:720px;border:0"></iframe>
+<iframe src="https://page-breaker.fisolamiabiola.workers.dev" title="Page Breaker" allow="autoplay" style="width:100%;height:720px;border:0"></iframe>
 ```
 
 The launcher also exposes this snippet through its **Embed** control. Add `?url=example.com` to load a particular public page immediately.
@@ -25,3 +25,17 @@ The tracker, score, and game controls fade away after three seconds. Only pointe
 Before the ball launches, a short notice explains that clearing the top 10% of the viewport automatically scrolls the website upward to reveal the next section; manual scrolling remains available.
 
 Completed and failed runs can be submitted to a shared global leaderboard. Rankings prioritize the most destroyed elements, then the fastest time, and display the player, website, destruction count, time, and score.
+
+## Deploy to Cloudflare
+
+Page Breaker runs as a Cloudflare Worker with a D1 database bound as `DB`.
+
+```bash
+npm install
+npx wrangler login
+npx wrangler d1 create page-breaker-leaderboard --binding DB --update-config
+npm run cf:db:apply
+npm run cf:deploy
+```
+
+Use `npm run cf:dev` for local Worker development. The D1 migrations live in `drizzle/`.

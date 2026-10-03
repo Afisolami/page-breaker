@@ -1,0 +1,15 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "page-breaker",
+	"main": "dist/server/index.js",
+	"compatibility_date": "2026-10-03",
+	"workers_dev": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "page-breaker-leaderboard",
+			"database_id": "eb06ad65-93bf-46d0-a5ef-1ddc05e27508",
+			"migrations_dir": "drizzle"
+		}
+	]
+}
